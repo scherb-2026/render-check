@@ -1,0 +1,89 @@
+/* css/room.css — one comparison box: bar, picture, slider, gamma, tabs, grid, video transport */
+
+.rooms { display: grid; gap: 28px; }
+.room { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 12px; }
+.bar h2 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.meta { color: var(--muted); font-size: 13px; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button:focus-visible { outline-offset: -2px; }
+
+/* video-player style: play button, then the slider track */
+.slider-row { display: flex; align-items: center; gap: 10px; height: 56px; padding-right: 50px; }   /* track ends under the image's right edge */
+.slider-row.off { visibility: hidden; height: clamp(6px, 1.5vw, 16px); overflow: hidden; }
+.slider-row button.sweep { flex: none; width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
+                           border-radius: 50%; color: #fff; border-color: rgba(255,255,255,.45); }
+.slider-row button.sweep:hover { border-color: #fff; }
+.slider-row button.sweep[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+/* vertical gamma slider to the right of the image */
+.gamma-col { align-self: stretch; width: 40px; flex: none; display: flex; flex-direction: column; align-items: center;
+             gap: 6px; padding: 4px 0; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+.gamma-col .g-label { font-size: 15px; font-weight: 600; opacity: .85; }
+.gamma-col input { flex: 1; min-height: 60px; width: 24px; margin: 0; accent-color: var(--accent); cursor: ns-resize;
+                   writing-mode: vertical-lr; direction: rtl; }   /* bottom = 1.00, top = 4.00 */
+.gamma-col output { opacity: .85; }
+
+
+.stage-wrap { background: var(--stage); padding: clamp(6px, 1.5vw, 16px) clamp(6px, 1.5vw, 16px) 0; display: flex; flex-direction: column; }
+/* The viewer is capped so the image is never taller than 80vh; the image keeps its exact aspect ratio
+   (width comes from the viewer, height from aspect-ratio), so nothing is ever stretched. 50px = gamma column + gap. */
+.viewer { width: 100%; max-width: calc(80vh * var(--ar, 1.6) + 50px); margin: 0 auto; }
+.view-row { display: flex; gap: 10px; align-items: flex-start; }
+.stage {
+  position: relative; flex: 1; min-width: 0; aspect-ratio: 16 / 10;
+  overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: pan-y;
+  cursor: ew-resize;
+}
+.stage.mode-fade, .stage.mode-diff { cursor: default; }
+.blend { position: absolute; inset: 0; isolation: isolate; }
+.stage .media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; display: block; }
+.stage.mode-diff .photo { mix-blend-mode: difference; }
+.stage .media.inactive { display: none; }
+
+.tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px; padding: 2px 12px 0; }
+.tabs[hidden] { display: none; }
+.tabs .lbl { align-self: center; margin-right: 6px; font-size: 13px; color: var(--muted); }
+.tabs button[role="tab"] {
+  min-width: 42px; padding: 6px 12px; border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 7px 7px 0 0; font-variant-numeric: tabular-nums;
+}
+.tabs button[role="tab"]:hover { border-color: var(--accent); }
+.tabs button[aria-selected="true"] { background: var(--stage); border-color: var(--stage); color: #fff; font-weight: 600; }
+.tabs button[role="tab"]:focus-visible { outline-offset: -2px; }
+.tabs .fname { align-self: center; margin-left: 10px; font-size: 13px; color: var(--muted);
+               min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage.solo .photo { visibility: hidden; }
+
+/* slider track below the image; its width matches the image so the handle lines up with the split */
+.track { position: relative; flex: 1; height: 100%; margin: 0 20px 0 10px; cursor: ew-resize; touch-action: none; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px;
+                 background: rgba(255,255,255,.35); border-radius: 1px; }
+.handle {
+  position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%);
+  border-radius: 50%; background: #fff; color: #222; border: 0; padding: 0;
+  box-shadow: 0 1px 6px rgba(0,0,0,.4); display: grid; place-items: center;
+  pointer-events: auto; cursor: ew-resize;
+}
+.handle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tag { position: absolute; top: 10px; padding: 3px 9px; border-radius: 5px; font-size: 13px;
+       background: rgba(20,20,22,.7); color: #fff; pointer-events: none; }
+.tag.l { left: 10px; } .tag.r { right: 10px; }
+.stage.mode-fade .tag, .stage.mode-diff .tag { display: none; }
+
+.grid { position: absolute; inset: 0; pointer-events: none; display: none; mix-blend-mode: difference;
+        background-image: linear-gradient(to right, rgba(255,255,255,.45) 1px, transparent 1px),
+                          linear-gradient(to bottom, rgba(255,255,255,.45) 1px, transparent 1px);
+        background-size: 10% 10%; }
+body.show-grid .grid { display: block; }
+
+/* video transport */
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.transport[hidden] { display: none; }
+.transport .icon { width: 36px; height: 32px; padding: 0; display: grid; place-items: center; }
+.transport .seek { flex: 1 1 220px; accent-color: var(--accent); min-width: 140px; }
+.transport .time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); min-width: 15ch; text-align: right; }
+.transport label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }

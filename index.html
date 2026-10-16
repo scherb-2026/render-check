@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Render check — photo vs. 3D render</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/room.css">
+<link rel="stylesheet" href="css/notices.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Render check</h1>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button type="button" class="toggle" id="snapBtn" aria-pressed="true" title="Gently align the nearest comparison when you stop scrolling">Snap scroll</button>
+    <button type="button" class="toggle" id="gridBtn" aria-pressed="false">Grid</button>
+    <label class="btn" title="Pick your rooms folder manually">
+      Open folder…
+      <input type="file" id="folderInput" webkitdirectory directory multiple>
+    </label>
+  </header>
+
+  <main id="rooms" class="rooms"></main>
+
+  <p class="hint">Drag across an image or the slider below it to move the split; <kbd>←</kbd> <kbd>→</kbd> nudge a focused handle (<kbd>Shift</kbd> for bigger steps).
+    Hovering a box: <kbd>Space</kbd> blinks to the render only. <kbd>S</kbd> starts or stops the sweep, <kbd>1</kbd>–<kbd>9</kbd> switch renders. For videos: <kbd>K</kbd> play/pause, <kbd>,</kbd> <kbd>.</kbd> step one frame.</p>
+</div>
+
+<template id="roomTpl">
+  <section class="room">
+    <div class="bar">
+      <h2></h2>
+      <span class="meta"></span>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Comparison mode">
+        <button type="button" data-mode="slider" aria-pressed="true">Slider</button>
+        <button type="button" data-mode="fade" aria-pressed="false">Fade</button>
+        <button type="button" data-mode="diff" aria-pressed="false">Difference</button>
+      </div>
+    </div>
+    <div class="warn" hidden></div>
+    <div class="tabs" role="tablist" aria-label="Renders" hidden></div>
+    <div class="stage-wrap">
+      <div class="viewer">
+        <div class="view-row">
+          <div class="stage mode-slider">
+            <div class="blend"></div>
+            <div class="grid"></div>
+            <span class="tag l">Original</span>
+            <span class="tag r">Render</span>
+          </div>
+          <label class="gamma-col" title="Gamma: lifts dark tones in both images (and small differences in Difference mode) without clipping highlights. Double-click to reset.">
+            <span class="g-label">γ</span>
+            <input type="range" class="gamma" min="1" max="4" step="0.05" value="1" aria-label="Gamma boost">
+            <output>1.00</output>
+          </label>
+        </div>
+        <div class="slider-row">
+          <button type="button" class="toggle sweep" aria-pressed="false" aria-label="Sweep" title="Sweep the slider back and forth (S)">
+            <svg class="i-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
+            <svg class="i-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+          </button>
+          <div class="track">
+            <button type="button" class="handle" role="slider" aria-label="Comparison position"
+                    aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="transport" hidden>
+      <button type="button" class="icon play" aria-label="Play">
+        <svg class="i-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
+        <svg class="i-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+      </button>
+      <button type="button" class="icon back" aria-label="Previous frame">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6M6 6v12"/></svg>
+      </button>
+      <button type="button" class="icon fwd" aria-label="Next frame">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6M18 6v12"/></svg>
+      </button>
+      <input type="range" class="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+      <span class="time">0:00.00 / 0:00.00</span>
+      <label>fps
+        <select class="fps" aria-label="Frame rate for frame stepping">
+          <option>24</option><option>25</option><option selected>30</option><option>50</option><option>60</option>
+        </select>
+      </label>
+      <label>Speed
+        <select class="speed" aria-label="Playback speed">
+          <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option>
+        </select>
+      </label>
+      <button type="button" class="toggle loop" aria-pressed="true">Loop</button>
+    </div>
+  </section>
+</template>
+
+<!-- Classic scripts, in this order: they share one global scope, which keeps the page working when opened straight from disk. -->
+<script src="js/core/config.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/naming.js"></script>
+<script src="js/lib/exr.js"></script>
+<script src="js/media/media.js"></script>
+<script src="js/room/room.js"></script>
+<script src="js/app/render-page.js"></script>
+<script src="js/app/discovery.js"></script>
+<script src="js/app/scroll-assist.js"></script>
+<script src="js/app/shortcuts.js"></script>
+<script src="js/app/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+/* css/notices.css — warnings inside a box, the video fix panel, notices for missing or skipped folders */
+
+.warn { color: var(--warn); font-size: 13px; padding: 0 12px 10px; }
+.fix { padding: 0 12px 12px; font-size: 14px; }
+.fix p { margin: 0 0 8px; max-width: 95ch; }
+.fix strong { color: var(--warn); font-weight: 600; }
+.fix .cmd { display: flex; gap: 8px; align-items: stretch; }
+.fix pre { flex: 1; margin: 0; padding: 8px 10px; border-radius: 7px; background: var(--stage); color: #eee;
+           font-size: 12.5px; overflow-x: auto; white-space: pre; }
+
+
+.notice { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; max-width: 70ch; }
+.notice h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.notice p { margin: 0 0 12px; }
+.notice ul, .skipped ul { margin: 0 0 14px; padding-left: 20px; }
+.notice li, .skipped li { margin: 4px 0; }
+.skipped { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.skipped summary { cursor: pointer; color: var(--warn); }
+.skipped ul { margin: 8px 0 2px; }
+.notice pre { background: var(--stage); color: #eee; padding: 12px 14px; border-radius: 7px; overflow-x: auto; font-size: 13px; margin: 0 0 14px; }
