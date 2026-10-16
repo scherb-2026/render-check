@@ -10,8 +10,14 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/room.css">
 <link rel="stylesheet" href="css/notices.css">
+<link rel="stylesheet" href="css/sidebar.css">
 </head>
 <body>
+<nav class="sidebar" id="sideTabs" role="tablist" aria-orientation="vertical" aria-label="Media type" hidden>
+  <button type="button" role="tab" data-tab="video" aria-selected="false" aria-controls="pane-video"><span class="lbl">Videos</span><span class="n"></span></button>
+  <button type="button" role="tab" data-tab="image" aria-selected="false" aria-controls="pane-image"><span class="lbl">Images</span><span class="n"></span></button>
+</nav>
+
 <div class="wrap">
   <header>
     <h1>Render check</h1>
@@ -28,7 +34,7 @@
   <main id="rooms" class="rooms"></main>
 
   <p class="hint">Drag across an image or the slider below it to move the split; <kbd>←</kbd> <kbd>→</kbd> nudge a focused handle (<kbd>Shift</kbd> for bigger steps).
-    Hovering a box: <kbd>Space</kbd> blinks to the render only. <kbd>S</kbd> starts or stops the sweep, <kbd>1</kbd>–<kbd>9</kbd> switch renders. For videos: <kbd>K</kbd> play/pause, <kbd>,</kbd> <kbd>.</kbd> step one frame.</p>
+    Hovering a box: <kbd>Space</kbd> blinks to the render only. <kbd>S</kbd> starts or stops the sweep, <kbd>1</kbd>–<kbd>9</kbd> switch renders. For videos: <kbd>K</kbd> play/pause, <kbd>,</kbd> <kbd>.</kbd> step one frame. Videos play by themselves while they are in the middle of the window; stop one and it stays stopped until you scroll away and back. Switch between Videos and Images with the bar on the left.</p>
 </div>
 
 <template id="roomTpl">

@@ -32,7 +32,7 @@ This file is a short guide. The details are in the `research/` folder (see the l
 
     render-check/
       index.html            markup and the script list
-      css/                  base · room · notices
+      css/                  base · room · notices · sidebar
       js/
         core/               config · util · naming
         lib/exr.js          OpenEXR decoder
@@ -96,6 +96,19 @@ Things to know before sharing: a Pages site on a free account is **public**, so 
 renders; Git LFS files are not served by Pages; EXR and video files are large, so compress them first.
 
 A step-by-step guide, including troubleshooting, is in `GITHUB_PAGES.md`.
+
+## Videos and Images tabs
+
+A bar on the left switches between two tabs: **Videos** (selected when the page opens) and **Images**, each with the number of
+comparisons in it. The folders in `rooms/` are sorted by what they contain: a folder of videos is under Videos, a folder of images
+under Images, so just keep video rooms and image rooms in separate folders. (A folder counts as a video if its original or any render
+is a video, so a still compared with a video is under Videos.) If there are no videos at all, the page opens on Images. A tab is
+built the first time you open it, so the other tab's files aren't loaded until then.
+
+**Autoplay.** A video starts by itself when its picture is in the middle of the window (the thin band across the centre) and stops
+when it leaves that band. If you stop it yourself (the play button, **K**, frame step, scrubbing) it stays stopped for as long as it is
+in the middle; scroll away and back and it plays again. A video you start by hand keeps playing until it is out of view. Videos are
+muted, which is what lets browsers autoplay them. Switching tabs pauses the videos of the tab you leave.
 
 ## Using a comparison box
 

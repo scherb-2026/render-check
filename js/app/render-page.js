@@ -3,12 +3,48 @@
  * Uses: room/room.js
  * ====================================================================== */
 
+// Comparisons are split into a Videos and an Images tab, switched from the bar on the left. A tab's boxes are built the first time
+// it is shown (so the media of the other tab is not loaded or decoded up front) and then kept, only hidden.
+const tabEntries = { video: [], image: [] }, tabPanes = {};
+let activeTab = null;
+
+function showTab(kind) {
+  if (!tabEntries[kind].length) return;
+  activeTab = kind; hovered = null;
+  for (const k of Object.keys(tabEntries)) {
+    if (k === kind && !tabPanes[k]) {
+      const pane = document.createElement('div');
+      pane.className = 'pane'; pane.id = 'pane-' + k; pane.setAttribute('role', 'tabpanel');
+      tabEntries[k].forEach((e) => pane.appendChild(createRoom(e)));
+      roomsEl.appendChild(pane); tabPanes[k] = pane;
+    }
+    if (tabPanes[k]) tabPanes[k].hidden = k !== kind;
+  }
+  sideTabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === kind));
+  window.scrollTo(0, 0);
+}
+
+sideTabs.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.tab !== activeTab) showTab(b.dataset.tab); });
+sideTabs.addEventListener('keydown', (e) => {
+  const to = { ArrowUp: 'video', ArrowLeft: 'video', Home: 'video', ArrowDown: 'image', ArrowRight: 'image', End: 'image' }[e.key];
+  if (to && tabEntries[to].length) { e.preventDefault(); showTab(to); sideTabs.querySelector('[data-tab="' + to + '"]').focus(); }
+});
+
 function renderAll(entries, sourceLabel, skipped = [], info = {}) {
   roomsEl.innerHTML = '';
+  for (const k of Object.keys(tabEntries)) { tabEntries[k] = []; delete tabPanes[k]; }
+  activeTab = null; hovered = null;
+  sideTabs.hidden = true; document.body.classList.remove('has-side');
   skipped.sort((a, b) => collator.compare(a.name, b.name));
   if (!entries.length) { showNotice('empty', skipped, info); return; }
   if (skipped.length) roomsEl.appendChild(skippedBox(skipped, false));
-  entries.sort((a, b) => collator.compare(a.name, b.name)).forEach((e) => roomsEl.appendChild(createRoom(e)));
+  entries.sort((a, b) => collator.compare(a.name, b.name)).forEach((e) => tabEntries[e.kind].push(e));
+  sideTabs.querySelectorAll('button').forEach((b) => {
+    const n = tabEntries[b.dataset.tab].length;
+    b.querySelector('.n').textContent = n; b.disabled = !n;
+  });
+  sideTabs.hidden = false; document.body.classList.add('has-side');
+  showTab(tabEntries.video.length ? 'video' : 'image');   // Videos first; Images when there are no videos
   document.getElementById('count').textContent =
     entries.length + (entries.length === 1 ? ' comparison' : ' comparisons') + (sourceLabel ? ' from ' + sourceLabel : '');
 }

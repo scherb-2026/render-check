@@ -149,6 +149,8 @@ function createRoom(entry) {
   const playBtn = tp.querySelector('.play'), seek = tp.querySelector('.seek'), timeEl = tp.querySelector('.time');
   const fpsSel = tp.querySelector('.fps'), speedSel = tp.querySelector('.speed'), loopBtn = tp.querySelector('.loop');
   let playing = false, raf = 0, scrubbing = false, videos = [], master = null;
+  // Autoplay: a video plays while its picture is in the middle of the window, unless it was stopped by hand.
+  let inBand = false, manualStop = false, autoStarted = false;
   const duration = () => Math.min(...videos.map((v) => v.duration || Infinity));
 
   function refreshVideos() {
@@ -196,21 +198,28 @@ function createRoom(entry) {
     raf = requestAnimationFrame(tick);
   }
   function pause() {
-    playing = false; cancelAnimationFrame(raf); setPlayIcon();
+    playing = false; autoStarted = false; cancelAnimationFrame(raf); setPlayIcon();
     videos.forEach((v) => v.pause());
     if (!master) return;
     const t = master.currentTime;
     videos.forEach((v) => { if (v !== master) v.currentTime = t; });  // land on the same frame
     updateUI(t);
   }
-  const toggle = () => (playing ? pause() : play());
-  const step = (dir) => { if (!master) return; pause(); seekAll(master.currentTime + dir / +fpsSel.value); };
+  // Anything the user does to the transport counts as a manual stop (until the box leaves the middle of the window).
+  const toggle = () => { if (playing) { manualStop = true; pause(); } else { manualStop = false; play(); } };
+  const step = (dir) => { if (!master) return; manualStop = true; pause(); seekAll(master.currentTime + dir / +fpsSel.value); };
+  function maybeAutoplay() {
+    if (!inBand || manualStop || playing || !videos.length || videos.some((v) => v.readyState < 1)) return;
+    play();
+    autoStarted = playing;
+  }
 
   playBtn.addEventListener('click', toggle);
   tp.querySelector('.back').addEventListener('click', () => step(-1));
   tp.querySelector('.fwd').addEventListener('click', () => step(1));
   seek.addEventListener('pointerdown', () => { scrubbing = true; });
   seek.addEventListener('input', () => {
+    manualStop = true;
     if (playing) pause();
     const d = duration(); if (isFinite(d)) seekAll(seek.value / 1000 * d);
   });
@@ -218,6 +227,14 @@ function createRoom(entry) {
   speedSel.addEventListener('change', () => videos.forEach((v) => { v.playbackRate = +speedSel.value; }));
   loopBtn.addEventListener('click', () => loopBtn.setAttribute('aria-pressed', loopBtn.getAttribute('aria-pressed') !== 'true'));
   new IntersectionObserver(([e]) => { if (!e.isIntersecting) { if (playing) pause(); stopSweep(); } }).observe(stage);
+  // A thin band across the middle of the window: entering it starts a video, leaving it stops one that autoplay started
+  // and forgets a manual stop, so scrolling away and back plays it again. A video the user started by hand keeps playing
+  // until it is completely out of view (the observer above).
+  new IntersectionObserver((list) => {
+    inBand = list[list.length - 1].isIntersecting;
+    if (inBand) maybeAutoplay();
+    else { manualStop = false; if (playing && autoStarted) pause(); }
+  }, { rootMargin: '-49% 0px -49% 0px' }).observe(stage);
 
   // ----- render tabs -----
   const tabButtons = renders.map((r) => {
@@ -244,14 +261,14 @@ function createRoom(entry) {
   function select(i) {
     const next = renders[i];
     if (!next || next === active) return;
-    const wasPlaying = playing;
+    const wasPlaying = playing, wasAuto = autoStarted;
     const t = master ? master.currentTime : 0;
     if (playing) pause();
     active.el.classList.add('inactive');
     active = next;
     active.el.classList.remove('inactive');
     refreshVideos();
-    if (videos.length) { seekAll(t); if (wasPlaying) play(); }
+    if (videos.length) { seekAll(t); if (wasPlaying) { play(); autoStarted = wasAuto; } else maybeAutoplay(); }
     tabButtons.forEach((b, j) => { b.setAttribute('aria-selected', j === i); b.tabIndex = j === i ? 0 : -1; });
     updateLabels();
     showWarnings();
@@ -290,7 +307,7 @@ function createRoom(entry) {
   photo.addEventListener(isVideoEl(photo) ? 'loadedmetadata' : 'load', () => {
     photoReady = true;
     setAspect(...dims(photo));
-    renders.forEach(check); updateLabels(); updateUI();
+    renders.forEach(check); updateLabels(); updateUI(); maybeAutoplay();
   }, { once: true });
   photo.addEventListener('error', () => {
     if (!isVideoEl(photo)) { general.push(photo.exrError ? 'Couldn’t read the original (' + entry.original.name + '): ' + photo.exrError + '.' : 'Couldn’t load the original (' + entry.original.name + ').'); showWarnings(); updateLabels(); return; }
@@ -301,7 +318,7 @@ function createRoom(entry) {
       r.ready = true;
       if (!photoReady) setAspect(...dims(r.el));
       check(r);
-      if (r === active) updateLabels();
+      if (r === active) { updateLabels(); maybeAutoplay(); }
     }, { once: true });
     r.el.addEventListener('error', () => {
       if (!isVideoEl(r.el)) { r.warnings.push(r.el.exrError ? 'Couldn’t read this render (' + r.name + '): ' + r.el.exrError + '.' : 'Couldn’t load this render (' + r.name + ').'); showWarnings(); updateLabels(); return; }

@@ -3,13 +3,21 @@
  * Uses: core/naming.js
  * ====================================================================== */
 
-function toEntry(name, files, urlOf) {
-  files.sort((a, b) => collator.compare(a.name, b.name));
+function buildEntry(name, files, urlOf) {
   if (files.length < 2) return null;
   const { original, renders, warning } = classify(files);
   if (!original || !renders.length) return null;
   const m = (f) => ({ url: urlOf(f), isVideo: VIDEO_RE.test(f.name), isExr: /\.exr$/i.test(f.name), name: f.name });
-  return { name, warning, original: m(original), renders: renders.map(m) };
+  const o = m(original), rs = renders.map(m);
+  return { name, warning, kind: [o, ...rs].some((x) => x.isVideo) ? 'video' : 'image', original: o, renders: rs };
+}
+
+// One folder is one comparison. Its tab (Videos or Images) follows from what is in it: a folder of videos goes under Videos, a
+// folder of images under Images (a still compared with a video counts as a video). Returns a list so callers can use flat().
+function toEntries(name, files, urlOf) {
+  files.sort((a, b) => collator.compare(a.name, b.name));
+  const e = buildEntry(name, files, urlOf);
+  return e ? [e] : [];
 }
 
 // ---------- why a folder was skipped ----------
@@ -94,16 +102,16 @@ async function loadFromServer() {
   const entries = await Promise.all(root.dirs.map(async (d) => {
     try {
       const { files, others, dirs } = await list(d);
-      const entry = toEntry(d.name, files, (f) => f.url);
-      if (!entry) skipped.push({ name: d.name, reason: skipReason(files, others, dirs.map((x) => x.name)) });
-      return entry;
+      const made = toEntries(d.name, files, (f) => f.url);
+      if (!made.length) skipped.push({ name: d.name, reason: skipReason(files, others, dirs.map((x) => x.name)) });
+      return made;
     } catch (err) {
       skipped.push({ name: d.name, reason: 'couldn’t open this folder (' + err.message + ').' });
-      return null;
+      return [];
     }
   }));
   const loose = root.files.map((f) => f.name).concat(root.others);
-  renderAll(entries.filter(Boolean), '', skipped, { subfolders: root.dirs.length, loose });
+  renderAll(entries.flat(), '', skipped, { subfolders: root.dirs.length, loose });
 }
 
 // ---------- source 2: pick a folder manually ----------
@@ -122,8 +130,8 @@ document.getElementById('folderInput').addEventListener('change', (e) => {
   }
   const entries = [], skipped = [];
   for (const [name, g] of groups) {
-    const entry = toEntry(name, g.files, (f) => URL.createObjectURL(f));
-    if (entry) entries.push(entry);
+    const list = toEntries(name, g.files, (f) => URL.createObjectURL(f));
+    if (list.length) entries.push(...list);
     else skipped.push({ name, reason: skipReason(g.files, g.others.map((f) => f.name)) });
   }
   renderAll(entries, rootName ? rootName + '/' : '', skipped, { subfolders: groups.size, loose });

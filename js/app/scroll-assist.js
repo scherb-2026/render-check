@@ -30,6 +30,7 @@ function snapPoints() {
   const vh = window.innerHeight, max = document.documentElement.scrollHeight - vh;
   const pts = [];
   document.querySelectorAll('.room').forEach((el) => {
+    if (!el.offsetParent) return;      // in the hidden tab
     const r = el.getBoundingClientRect(), top = r.top + window.scrollY;
     const y = r.height <= vh - 2 * SNAP_MARGIN ? top - (vh - r.height) / 2 : top - SNAP_MARGIN;
     pts.push(Math.max(0, Math.min(max, y)));

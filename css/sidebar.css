@@ -1,0 +1,27 @@
+/* css/sidebar.css — the vertical Videos / Images tab bar on the left, and the panes it switches */
+
+:root { --side-w: 46px; }
+body.has-side { padding-left: var(--side-w); }
+
+.sidebar {
+  position: fixed; z-index: 20; left: 0; top: 0; bottom: 0; width: var(--side-w);
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 0;
+  background: var(--panel); border-right: 1px solid var(--line);
+}
+.sidebar[hidden] { display: none; }
+.sidebar button {
+  flex: none; width: 100%; padding: 16px 0; border: 0; border-radius: 0; background: transparent; color: var(--muted);
+  writing-mode: vertical-rl; transform: rotate(180deg);          /* text reads bottom to top, like a book spine */
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 500; letter-spacing: .02em; cursor: pointer;
+  border-right: 3px solid transparent;                           /* rotated, so this is the bar's left edge */
+}
+.sidebar button:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sidebar button[aria-selected="true"] { color: var(--ink); background: color-mix(in srgb, var(--accent) 16%, transparent); border-right-color: var(--accent); }
+.sidebar button:disabled { opacity: .4; cursor: default; }
+.sidebar button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sidebar .n { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 1.6em; padding: 1px 0; text-align: center; border-radius: 9px; background: var(--line); color: var(--ink); }
+.sidebar [aria-selected="true"] .n { background: var(--accent); color: var(--accent-ink); }
+
+.pane { display: grid; gap: 28px; }
+.pane[hidden] { display: none; }

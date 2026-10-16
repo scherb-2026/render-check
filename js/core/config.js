@@ -9,5 +9,6 @@ const RENDER_WORDS = ['render', 'synthetic'];
 const ORIGINAL_WORDS = ['original', 'orig', 'photo', 'ref', 'real', 'footage'];
 const roomsEl = document.getElementById('rooms');
 const tpl = document.getElementById('roomTpl');
+const sideTabs = document.getElementById('sideTabs');
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 let hovered = null;
