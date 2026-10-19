@@ -45,7 +45,7 @@ That is all. There is nothing to pick for the branch or folder.
 
 ## Adding or changing rooms later
 
-Put the new folder in `rooms/` (see the README for the layout and naming), then commit and push. The workflow rebuilds the room list by itself, so you never edit or commit `manifest.json`. A room can take a minute to appear, and you may need a hard refresh (Ctrl+F5) because browsers keep old files.
+Put the new folder in `rooms/` (a room, or a dataset folder holding rooms; see the README for the layout and naming). If it has videos, first run `python tools/prepare-videos.py` on your computer and look at the result in the page it starts (this converts what browsers can't play and keeps your originals in `video-originals/`, which is never pushed). Then commit and push. The workflow rebuilds the room list by itself, so you never edit or commit `manifest.json`. A room can take a minute to appear, and you may need a hard refresh (Ctrl+F5) because browsers keep old files.
 
 With GitHub Desktop: commit, then **Push origin**. With Git:
 
@@ -61,7 +61,7 @@ With GitHub Desktop: commit, then **Push origin**. With Git:
 | The run fails at "Configure Pages" or "Deploy" | Settings → Pages → Source is not set to **GitHub Actions** (step 3). Set it and re-run the workflow. |
 | The push is rejected for a large file | A file is over 100 MB. Compress it, remove it from the commit (`git rm --cached <file>`, then commit again) and push. |
 | Page says "Couldn’t read the rooms folder" | The deploy didn't finish, or you opened the repository page instead of the Pages address. Check the Actions run, and open the `github.io` link. |
-| "No comparisons found" or "folders were skipped" | The page lists each skipped folder with the reason: usually a room with only one usable file, or files nested one folder too deep. |
+| "No comparisons found" or "folders were skipped" | The page lists each skipped folder with the reason: usually a folder with no image or video that the page can show (for example only TIFF files), or files nested one folder too deep. |
 | A new room doesn't show up | Wait for the run to finish, then hard refresh. |
 | An EXR says it can't be read | It uses B44 or DWAA compression or is tiled. Save it from Blender with Codec → ZIP. |
 | A video won't play | It is probably H.265 or 10-bit. The box shows the ffmpeg command that fixes it. |

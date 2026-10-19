@@ -1,5 +1,5 @@
 /* ======================================================================
- * js/room/room.js — one comparison box: modes, slider, gamma, sweep, video sync, render tabs; plus the “can’t play this video” panel
+ * js/room/room.js — one comparison box (or a preview box when there is nothing to compare): modes, slider, gamma, sweep, video sync, render tabs; plus the “can’t play this video” panel
  * Uses: core/*, media/media.js
  * ====================================================================== */
 
@@ -33,16 +33,21 @@ function createRoom(entry) {
   const tabsEl = node.querySelector('.tabs');
   const tagR = node.querySelector('.tag.r');
 
-  const photo = makeMedia(entry.original.url, entry.original.isVideo, 'photo', 'Original', entry.original.isExr);
+  // A preview box has no original: the room only holds renders, or only originals, or a single file, so there is nothing to compare
+  // yet. Its files are shown one at a time (numbered tabs when there are several) with gamma, grid and the video controls, but without
+  // the slider, the modes and the sweep. Inside, its files are kept in `renders`, and `photo` is null.
+  const preview = !!entry.preview;
+  const photo = preview ? null : makeMedia(entry.original.url, entry.original.isVideo, 'photo', 'Original', entry.original.isExr);
   const renders = entry.renders.map((r, i) => ({
     ...r, i, ready: false, checked: false, warnings: [], fix: null,
-    el: makeMedia(r.url, r.isVideo, 'render inactive', '3D render ' + (i + 1), r.isExr),
+    el: makeMedia(r.url, r.isVideo, 'render inactive', preview ? 'Preview ' + (i + 1) : '3D render ' + (i + 1), r.isExr),
   }));
   renders.forEach((r) => blend.append(r.el));
-  blend.append(photo);
+  if (photo) blend.append(photo);
+  node.classList.toggle('preview', preview);
   let active = renders[0];
   active.el.classList.remove('inactive');
-  let pos = 50, mode = 'slider', photoReady = false;
+  let pos = 50, mode = preview ? 'view' : 'slider', photoReady = false;
 
   node.querySelector('h2').textContent = prettify(entry.name);
   const general = entry.warning ? [entry.warning] : [];
@@ -60,8 +65,10 @@ function createRoom(entry) {
     node.querySelector('.slider-row').classList.toggle('off', mode === 'diff');
     if (mode === 'diff') stopSweep();
     handle.setAttribute('aria-label', mode === 'fade' ? 'Original opacity' : 'Comparison position');
-    photo.style.clipPath = mode === 'slider' ? 'inset(0 ' + (100 - pos) + '% 0 0)' : 'none';
-    photo.style.opacity = mode === 'fade' ? pos / 100 : 1;
+    if (photo) {
+      photo.style.clipPath = mode === 'slider' ? 'inset(0 ' + (100 - pos) + '% 0 0)' : 'none';
+      photo.style.opacity = mode === 'fade' ? pos / 100 : 1;
+    }
     const g = +gain.value;
     gammaFuncs.forEach((f) => f.setAttribute('exponent', (1 / g).toFixed(4)));
     blend.style.filter = g > 1.001 ? 'url(#' + gammaId + ')' : 'none';
@@ -101,7 +108,7 @@ function createRoom(entry) {
     sweepBtn.querySelector('.i-pause').style.display = sweeping ? '' : 'none';
   }
   function startSweep() {
-    if (sweeping || mode === 'diff') return;
+    if (sweeping || mode === 'diff' || preview) return;
     phase = Math.acos(Math.max(-1, Math.min(1, 1 - pos / 50)));   // continue from where the slider is
     sweeping = true; lastTs = 0; lastSwitch = phase; setSweepIcon();
     sweepRaf = requestAnimationFrame(sweepTick);
@@ -154,7 +161,7 @@ function createRoom(entry) {
   const duration = () => Math.min(...videos.map((v) => v.duration || Infinity));
 
   function refreshVideos() {
-    videos = [photo, active.el].filter(isVideoEl);
+    videos = [photo, active.el].filter((el) => el && isVideoEl(el));
     master = isVideoEl(active.el) ? active.el : (videos[0] || null);
     tp.hidden = !videos.length;
     renders.forEach((r) => { if (r !== active && isVideoEl(r.el)) r.el.pause(); });
@@ -254,7 +261,7 @@ function createRoom(entry) {
   fname.className = 'fname';
   if (renders.length > 1) {
     tabsEl.hidden = false;
-    const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = 'Render';
+    const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = preview ? 'File' : 'Render';
     tabsEl.append(lbl, ...tabButtons, fname);
   }
 
@@ -267,15 +274,25 @@ function createRoom(entry) {
     active.el.classList.add('inactive');
     active = next;
     active.el.classList.remove('inactive');
+    if (preview && active.ready) setAspect(...dims(active.el));
     refreshVideos();
     if (videos.length) { seekAll(t); if (wasPlaying) { play(); autoStarted = wasAuto; } else maybeAutoplay(); }
     tabButtons.forEach((b, j) => { b.setAttribute('aria-selected', j === i); b.tabIndex = j === i ? 0 : -1; });
     updateLabels();
     showWarnings();
   }
+  const note = (el, what) => { const i = el.exrInfo; return i ? ' · ' + what + ' EXR ' + i.compression + ', ' + i.types.join('+') + (i.layer ? ', layer ' + i.layer : '') + (i.layers.length > 1 ? ' (of ' + i.layers.length + ')' : '') : ''; };
+  const PREVIEW_TEXT = { render: 'render only, nothing to compare yet', original: 'original only, nothing to compare yet', file: 'single file, nothing to compare yet' };
   function updateLabels() {
     tagR.textContent = renders.length > 1 ? 'Render ' + (active.i + 1) : 'Render';
     fname.textContent = active.name;
+    if (preview) {
+      if (!active.ready) { metaEl.textContent = active.el.exrPending ? 'decoding EXR…' : ''; return; }
+      const [w, h] = dims(active.el);
+      metaEl.textContent = w + '×' + h + ' · ' + (isVideoEl(active.el) ? 'video' : 'image') + ' · ' + PREVIEW_TEXT[entry.preview] +
+        (renders.length === 1 ? ' · ' + active.name : '') + note(active.el, entry.preview === 'file' ? 'file' : entry.preview);
+      return;
+    }
     if (!photoReady || !active.ready) { metaEl.textContent = photo.exrPending || active.el.exrPending ? 'decoding EXR…' : ''; return; }
     const [pw, ph] = dims(photo), [rw, rh] = dims(active.el);
     const kind = (el) => isVideoEl(el) ? 'video' : 'image';
@@ -284,7 +301,6 @@ function createRoom(entry) {
       ? pw + '×' + ph + (vids ? ' · ' + (vids === 2 ? 'videos' : 'video + image') : '')
       : 'original ' + kind(photo) + ' ' + pw + '×' + ph + ', render ' + kind(active.el) + ' ' + rw + '×' + rh) +
       ' · original: ' + entry.original.name + (renders.length === 1 ? ' · render: ' + active.name : '');
-    const note = (el, what) => { const i = el.exrInfo; return i ? ' · ' + what + ' EXR ' + i.compression + ', ' + i.types.join('+') + (i.layer ? ', layer ' + i.layer : '') + (i.layers.length > 1 ? ' (of ' + i.layers.length + ')' : '') : ''; };
     metaEl.textContent += note(photo, 'original') + note(active.el, 'render');
   }
 
@@ -304,26 +320,29 @@ function createRoom(entry) {
       r.warnings.push('Lengths differ (original ' + fmt(photo.duration) + ', render ' + fmt(r.el.duration) + '); playback stops at the shorter one.');
     if (r === active) { showWarnings(); updateLabels(); updateUI(); }
   }
-  photo.addEventListener(isVideoEl(photo) ? 'loadedmetadata' : 'load', () => {
-    photoReady = true;
-    setAspect(...dims(photo));
-    renders.forEach(check); updateLabels(); updateUI(); maybeAutoplay();
-  }, { once: true });
-  photo.addEventListener('error', () => {
-    if (!isVideoEl(photo)) { general.push(photo.exrError ? 'Couldn’t read the original (' + entry.original.name + '): ' + photo.exrError + '.' : 'Couldn’t load the original (' + entry.original.name + ').'); showWarnings(); updateLabels(); return; }
-    if (photo.getAttribute('src')) tabsEl.before(makeFix('original', entry.original.name));
-  });
+  if (photo) {
+    photo.addEventListener(isVideoEl(photo) ? 'loadedmetadata' : 'load', () => {
+      photoReady = true;
+      setAspect(...dims(photo));
+      renders.forEach(check); updateLabels(); updateUI(); maybeAutoplay();
+    }, { once: true });
+    photo.addEventListener('error', () => {
+      if (!isVideoEl(photo)) { general.push(photo.exrError ? 'Couldn’t read the original (' + entry.original.name + '): ' + photo.exrError + '.' : 'Couldn’t load the original (' + entry.original.name + ').'); showWarnings(); updateLabels(); return; }
+      if (photo.getAttribute('src')) tabsEl.before(makeFix('original', entry.original.name));
+    });
+  }
   renders.forEach((r) => {
     r.el.addEventListener(isVideoEl(r.el) ? 'loadedmetadata' : 'load', () => {
       r.ready = true;
-      if (!photoReady) setAspect(...dims(r.el));
+      if (preview ? r === active : !photoReady) setAspect(...dims(r.el));
       check(r);
       if (r === active) { updateLabels(); maybeAutoplay(); }
     }, { once: true });
     r.el.addEventListener('error', () => {
-      if (!isVideoEl(r.el)) { r.warnings.push(r.el.exrError ? 'Couldn’t read this render (' + r.name + '): ' + r.el.exrError + '.' : 'Couldn’t load this render (' + r.name + ').'); showWarnings(); updateLabels(); return; }
+      const what = preview ? 'this file' : 'this render';
+      if (!isVideoEl(r.el)) { r.warnings.push(r.el.exrError ? 'Couldn’t read ' + what + ' (' + r.name + '): ' + r.el.exrError + '.' : 'Couldn’t load ' + what + ' (' + r.name + ').'); showWarnings(); updateLabels(); return; }
       if (!r.el.getAttribute('src') || r.fix) return;
-      r.fix = makeFix('render', r.name);
+      r.fix = makeFix(preview ? 'file' : 'render', r.name);
       tabsEl.before(r.fix);
       showWarnings();
     });
@@ -346,7 +365,8 @@ function makeFix(which, file) {
     '<p><strong>The ' + which + ' video (' + escapeHtml(file) + ') can’t be played by this browser.</strong> ' +
     'The file loaded, but the page uses the browser’s built-in video player, and it can’t decode how this video is encoded. ' +
     'Usually that means H.265/HEVC, 10-bit, or a 4:4:4/4:2:2 color format, which desktop players like VLC handle but browsers don’t. ' +
-    'Run this in the room’s folder to make a browser-friendly copy, then move the old file out of the folder and refresh:</p>' +
+    'Run this in the room’s folder to make a browser-friendly copy, then move the old file out of the folder and refresh. ' +
+    '(Or run <code>python tools/prepare-videos.py</code> once from the project folder: it does this for every video in <code>rooms/</code> and then starts the page.)</p>' +
     '<div class="cmd"><pre></pre><button type="button">Copy</button></div>';
   box.querySelector('pre').textContent = cmd;
   const btn = box.querySelector('button');

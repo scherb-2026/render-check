@@ -1,17 +1,20 @@
 # Render check
 
-A local web page for checking how closely a 3D reconstruction matches reality. Each folder in `rooms/`
-becomes one comparison box: the original photo or footage on the left, your render on the right, with a
-slider to sweep between them. Images and videos both work.
+A local web page for checking how closely a 3D reconstruction matches reality. Each room folder becomes one comparison
+box: the original photo or footage on the left, your render on the right, with a slider to sweep between them. Images and
+videos both work. Rooms can be grouped into datasets, one tab each on the left.
 
 ## Quick start
 
-1. Put each view in its own folder inside `rooms/` (layout below).
+1. Put each view in its own folder inside `rooms/`, or inside a dataset folder in `rooms/` (layout below).
 2. Open a terminal in the `render-check` folder and run:
 
        python -m http.server
 
 3. Open http://localhost:8000. After adding or changing files, just refresh the page.
+
+**With videos, use this instead of steps 2 and 3:** `python tools/prepare-videos.py` first converts any video a browser can't play
+(GoPro H.265, 10-bit, ProRes ...), then starts the page on http://localhost:8080. See "Fixing videos automatically" below.
 
 Opening `index.html` by double-clicking it won't work, because browsers don't let a page read folders from
 disk. Any local server that shows folder listings works: Python's (above), VS Code Live Server, `npx serve`,
@@ -25,7 +28,7 @@ This file is a short guide. The details are in the `research/` folder (see the l
 | You want to know | Look in |
 | --- | --- |
 | How to use the page | this file |
-| Code layout, load order, data conventions, how EXR loading works, how the page works inside, what was verified | `research/Render check project handover.md` |
+| Code layout, load order, data conventions (including datasets), how EXR loading works, how the page works inside, what was verified | `research/Render check project handover.md` |
 | Why it is built this way, pitfalls, known limitations, ideas, working notes | `research/project.md` |
 
 ## Folder layout
@@ -39,34 +42,46 @@ This file is a short guide. The details are in the `research/` folder (see the l
         media/media.js      builds the picture or video for a file; decodes EXR
         room/room.js        one comparison box
         app/                render-page · discovery · scroll-assist · shortcuts · main
+                            (discovery groups rooms into datasets; render-page draws the dataset bar and next button)
       rooms/
-        01_living-room/
+        01_apartment-a/          a dataset: a folder of rooms
+          01_living-room/
+            original.jpg
+            render.png
+          02_kitchen/
+            kitchen.jpg
+            kitchen.001.exr
+            kitchen.002.exr
+          03_walkthrough/
+            gopro_footage.mp4
+            walkthrough_synthetic.mp4
+        02_house-b/              another dataset
+          ...
+        old-test/                a room that is not in a dataset: shown under "Misc"
           original.jpg
           render.png
-        02_kitchen/
-          kitchen.jpg
-          kitchen.001.exr
-          kitchen.002.exr
-        03_walkthrough/
-          gopro_footage.mp4
-          walkthrough_synthetic.mp4
       tools/
         extract-frame.bat
+        prepare-videos.py   converts videos browsers can't play, then starts the page
         build-manifest.mjs  writes rooms/manifest.json for static hosting
       .github/workflows/pages.yml   publishes the page on GitHub Pages
+      video-originals/      appears after prepare-videos.py: the originals it replaced (not pushed)
       research/             archived knowledge (handover, project notes)
       tests/exr/            decoder tests
       THIRD_PARTY_NOTICES.md
 
-Each folder needs one original and at least one render, directly inside it (not in a further subfolder).
+Put the files directly inside each room folder (not in a further subfolder). A room with an original and at least one render is a
+comparison. A room that has only one kind of file is not skipped but shown as a **preview** (see "Previews" below), so you can look at
+data before there is anything to compare it with.
 
 **How renders are recognized.** A file is a render if its name contains `render` or `synthetic` (any
 capitalization, anywhere in the name), or if it ends in a Blender-style number such as `kitchen.001.png`.
 Every other file is the original, so the original needs no special name. The line next to each box's title
-shows which file was used as the original, so you can confirm it at a glance.
+shows which file was used as the original, so you can confirm it at a glance. A file whose name contains `original`, `orig`, `photo`,
+`ref`, `real` or `footage` is preferred as the original when there are several candidates.
 
-**Order and titles.** Boxes are sorted by folder name. Start folder names with `01_`, `02_` and so on to
-control the order; the number is hidden in the title (`02_kitchen` shows as "Kitchen").
+**Order and titles.** Boxes are sorted by folder name, and so are datasets. Start folder names with `01_`, `02_` and so on to
+control the order; the number is hidden in the title (`02_kitchen` shows as "Kitchen", `01_apartment-a` as "Apartment a").
 
 **Supported formats.** Images: JPG, PNG, WebP, GIF, AVIF, BMP and EXR. Videos: MP4 (H.264, 8-bit 4:2:0) and WebM.
 TIFF and ProRes/HEVC can't be shown by browsers; export as PNG, JPG or EXR, and see "Videos" below.
@@ -80,7 +95,8 @@ A PNG saved with Filmic or AgX will not look like the EXR of the same render; us
 ## Hosting on GitHub Pages
 
 Static hosts don't list folders, so the page can't find the rooms by itself there. `tools/build-manifest.mjs` writes
-`rooms/manifest.json` (every room folder and the files in it), and the page reads that when the server gives no listing. Locally
+`rooms/manifest.json` (every folder in `rooms/`, the room folders inside any dataset folder, and the files in each), and the page
+reads that when the server gives no listing. Locally
 nothing changes: the server's listing is tried first, so new files show up on refresh without rebuilding anything.
 
 1. Push the project to a GitHub repository whose default branch is `main`.
@@ -97,18 +113,54 @@ renders; Git LFS files are not served by Pages; EXR and video files are large, s
 
 A step-by-step guide, including troubleshooting, is in `GITHUB_PAGES.md`.
 
+## Datasets
+
+A bar on the far left has one tab per dataset, each with the number of rooms in it. To add a dataset, create a folder in
+`rooms/` and put the usual room folders inside it (`rooms/apartment-a/living-room/original.jpg`, and so on). The Videos and Images
+split (next section) then applies inside each dataset.
+
+- **How a folder in `rooms/` is read.** If it has images or videos directly inside it, it is a room. If it holds folders instead,
+  it is a dataset. If it has both, it is a room only when its own files make a full comparison (an original and a render); a lone
+  stray file or only-renders next to the room folders of a dataset is ignored and the folder stays a dataset.
+- **Misc.** Rooms that sit directly in `rooms/`, with no dataset folder around them, are collected in a dataset called **Misc**, always
+  the last tab. A dataset folder that you name `misc` is merged into it.
+- **Next dataset.** Scroll to the bottom of a dataset and a button leads to the next one in the bar; the last dataset has none. The scroll
+  pull (Snap scroll) treats the button like a box, so you can reach it.
+- **Only one level.** Datasets can't be nested: `rooms/<dataset>/<room>/files`. A room folder inside a room folder is listed under
+  "folders were skipped".
+- **Loading.** A dataset's boxes are built the first time you open it, then kept, so slider positions and settings survive switching
+  datasets. Videos are held in memory, so a long session across many video-heavy datasets uses more memory (reload to release it).
+- Switching datasets pauses the videos of the one you leave. Each dataset remembers whether you were on Videos or Images.
+
 ## Videos and Images tabs
 
-A bar on the left switches between two tabs: **Videos** (selected when the page opens) and **Images**, each with the number of
+Inside a dataset, a narrow bar beside the dataset bar switches between two tabs: **Videos** (selected when the page opens) and **Images**, each with the number of
 comparisons in it. The folders in `rooms/` are sorted by what they contain: a folder of videos is under Videos, a folder of images
 under Images, so just keep video rooms and image rooms in separate folders. (A folder counts as a video if its original or any render
-is a video, so a still compared with a video is under Videos.) If there are no videos at all, the page opens on Images. A tab is
+is a video, so a still compared with a video is under Videos.) If a dataset has no videos at all, it opens on Images. A tab is
 built the first time you open it, so the other tab's files aren't loaded until then.
 
 **Autoplay.** A video starts by itself when its picture is in the middle of the window (the thin band across the centre) and stops
 when it leaves that band. If you stop it yourself (the play button, **K**, frame step, scrubbing) it stays stopped for as long as it is
 in the middle; scroll away and back and it plays again. A video you start by hand keeps playing until it is out of view. Videos are
 muted, which is what lets browsers autoplay them. Switching tabs pauses the videos of the tab you leave.
+
+## Previews: rooms without a comparison
+
+A room is never skipped just because it lacks an original or a render. The page shows what is there, in a **preview** box:
+
+- one file (an image or a video, named anything): shown on its own;
+- only renders (every file looks like a render, e.g. `render.001.png`, `render.002.png`): shown with numbered tabs (**File** 1, 2, 3…);
+- only originals (every file is named like an original, e.g. `original_a.jpg`, `original_b.jpg`): shown the same way.
+
+A preview box has gamma, the grid, EXR decoding, and for videos the play, frame-step and scrub controls and autoplay. It has no
+slider, no Slider/Fade/Difference buttons and no sweep, and its line under the title says what it holds ("render only, nothing to compare
+yet"). Add the missing original or render to the same folder later and the next refresh turns it into a normal comparison. Several files
+with different shapes are fine: the box follows the shape of the file you select. A folder with no image or video at all is still listed
+under "folders were skipped".
+
+Note that a folder with several files none of which is named like an original or a render (for example `a.jpg` and `b.jpg`) is still read
+as one original plus renders, with a warning, as before.
 
 ## Using a comparison box
 
@@ -157,8 +209,35 @@ and loop. Videos are muted. You can also compare a still photo against a rendere
 Each video is loaded fully into memory before it plays, because Python's simple server can't serve parts of
 a file and seeking would otherwise jump back to the start. Very large files take a moment to appear.
 
-**If a video says it can't be played**, the file is usually H.265/HEVC, 10-bit, or a 4:4:4/4:2:2 color format.
-Desktop players handle these, browsers don't. The box shows the exact command to fix it, with a Copy button:
+### Fixing videos automatically: `tools/prepare-videos.py`
+
+Run this on your own computer after adding videos and before testing or pushing:
+
+    python tools/prepare-videos.py            (Windows: python tools\prepare-videos.py)
+
+It looks at every video in `rooms/`, converts the ones a browser can't play (H.265/HEVC, 10-bit, 4:4:4/4:2:2, ProRes ...) to an
+H.264 MP4, and **then starts the page** with `python -m http.server 8080` (open http://localhost:8080), so you can look at the result
+straight away. Stop it with Ctrl+C.
+
+- Videos that already play are left alone, so running it again only does new work. A `.mov` becomes `.mp4` (same name otherwise); the
+  page doesn't care about the extension.
+- Each converted file is checked (H.264, 8-bit, same length) before it replaces anything. Your original is **moved**, not deleted, to
+  `video-originals/` in the project folder, in the same folder layout as `rooms/`. That folder is in `.gitignore`, so it is never pushed.
+  Delete it when you no longer need the originals.
+- Audio is dropped (the page plays muted). It encodes with CRF 16 and the `slow` preset, the same settings as the ffmpeg command
+  the page shows: visually lossless, with the best compression x264 offers, so it takes longer per video than a quick convert. For a
+  fast check use `--preset fast`; for smaller files at some cost in quality use `--crf 20`.
+- If `name.mp4` already exists next to a `name.mov` that needs converting, that video is skipped with a message; rename one of them.
+- Options: `--dry-run` lists what would be converted and changes nothing; `--no-serve` converts and stops; `--port 9000` serves on another
+  port. It needs ffmpeg and ffprobe on the PATH (Windows: `winget install Gyan.FFmpeg`); without them it says so and just starts the page.
+- It only binds to this computer (`127.0.0.1`). To let others see the page, run `python -m http.server` yourself.
+- It is a Python script on purpose, not a `.bat`: it works from a network folder (`\\server\share\...`), which `cmd.exe` and so every
+  `.bat` file refuses as a working directory. Run it from PowerShell or any terminal with `python tools\prepare-videos.py`.
+- The page itself is unchanged: this is a step you run, not something the server does. For GitHub Pages, run it before you commit, so the
+  converted files are what gets pushed (they are also much smaller than the originals, which helps with the 100 MB limit).
+
+**If a video still says it can't be played**, the script wasn't run on it, or the file is damaged. The box shows the exact ffmpeg
+command for that one file, with a Copy button:
 
     ffmpeg -i "input.mp4" -c:v libx264 -pix_fmt yuv420p -crf 16 -preset slow -an -movflags +faststart "input_web.mp4"
 
@@ -201,7 +280,10 @@ in Blender's 1-based numbering is `129` here. Requires ffmpeg on your PATH. If f
 - **"Couldn't read the rooms folder"**: the page was opened without a server, or the server was started in
   a different folder. Start it inside `render-check`.
 - **"No comparisons found" or "folders were skipped"**: the page lists every skipped folder with the reason
-  (only one usable file, unsupported formats such as TIFF, files nested one level too deep).
+  (no image or video inside, unsupported formats such as TIFF, files nested one level too deep). Rooms inside datasets are listed as
+  `dataset/room/`.
+- **A dataset doesn't show up as a tab**: none of the room folders inside it had an image or video (see the skipped list), or
+  the folder is itself a room because it has a full comparison (original and render) directly inside it.
 - **The wrong file is used as the original**: check the file names against "How renders are recognized"
   above; the box title line shows the file that was picked.
 - **Hosting online**: static hosts such as GitHub Pages don't list folders. See "Hosting on GitHub Pages" above: the page then

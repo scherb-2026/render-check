@@ -1,4 +1,4 @@
-/* css/room.css — one comparison box: bar, picture, slider, gamma, tabs, grid, video transport */
+/* css/room.css — one comparison box (or preview box): bar, picture, slider, gamma, tabs, grid, video transport */
 
 .rooms { display: grid; gap: 28px; }
 .room { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -38,7 +38,7 @@
   overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: pan-y;
   cursor: ew-resize;
 }
-.stage.mode-fade, .stage.mode-diff { cursor: default; }
+.stage.mode-fade, .stage.mode-diff, .stage.mode-view { cursor: default; }
 .blend { position: absolute; inset: 0; isolation: isolate; }
 .stage .media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; display: block; }
 .stage.mode-diff .photo { mix-blend-mode: difference; }
@@ -72,7 +72,11 @@
 .tag { position: absolute; top: 10px; padding: 3px 9px; border-radius: 5px; font-size: 13px;
        background: rgba(20,20,22,.7); color: #fff; pointer-events: none; }
 .tag.l { left: 10px; } .tag.r { right: 10px; }
-.stage.mode-fade .tag, .stage.mode-diff .tag { display: none; }
+.stage.mode-fade .tag, .stage.mode-diff .tag, .stage.mode-view .tag { display: none; }
+
+/* preview box: only renders, only originals or a single file, so no comparison controls */
+.room.preview .seg, .room.preview .slider-row { display: none; }
+.room.preview .stage-wrap { padding-bottom: clamp(6px, 1.5vw, 16px); }
 
 .grid { position: absolute; inset: 0; pointer-events: none; display: none; mix-blend-mode: difference;
         background-image: linear-gradient(to right, rgba(255,255,255,.45) 1px, transparent 1px),

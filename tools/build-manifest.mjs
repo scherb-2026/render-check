@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes rooms/manifest.json: the list of room folders and the files in each.
+// Writes rooms/manifest.json: the list of room folders (and dataset folders holding room folders) and the files in each.
 //
 // Static hosts such as GitHub Pages can't list folders, so the page reads this file instead. Run it
 // again whenever the contents of rooms/ change; the GitHub Actions workflow (.github/workflows/pages.yml)
@@ -24,25 +24,42 @@ let entries;
 try { entries = readdirSync(roomsDir, { withFileTypes: true }); }
 catch { console.error('Folder not found: ' + roomsDir); process.exit(1); }
 
-const manifest = { version: 1, generated: new Date().toISOString(), rooms: {}, loose: [] };
+// version 2: every folder of rooms/ is { files, dirs, children }. A room folder just has files. A dataset folder (a folder of room
+// folders) has dirs, and children[name] = { files, dirs } for each of them, which is all the page needs to find rooms/<dataset>/<room>/.
+const manifest = { version: 2, generated: new Date().toISOString(), rooms: {}, loose: [] };
 let total = 0, problems = 0;
+
+// One folder: its files (with the size checks) and the names of its subfolders.
+function scan(dir, label) {
+  const node = { files: [], dirs: [] };
+  for (const f of readdirSync(dir, { withFileTypes: true }).sort((a, b) => collator.compare(a.name, b.name))) {
+    if (f.name.startsWith('.')) continue;
+    if (f.isDirectory()) { node.dirs.push(f.name); continue; }
+    const size = statSync(join(dir, f.name)).size;
+    total += size;
+    node.files.push(f.name);
+    if (size > FILE_LIMIT) { problems++; console.warn(`! ${label}/${f.name} is ${mb(size)}: GitHub rejects files over 100 MB. Compress it or host it elsewhere.`); }
+  }
+  return node;
+}
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 for (const e of entries.sort((a, b) => collator.compare(a.name, b.name))) {
   if (e.name.startsWith('.') || e.name === OUT) continue;
   if (!e.isDirectory()) { manifest.loose.push(e.name); continue; }
-  const dir = join(roomsDir, e.name), room = { files: [], dirs: [] };
-  for (const f of readdirSync(dir, { withFileTypes: true }).sort((a, b) => collator.compare(a.name, b.name))) {
-    if (f.name.startsWith('.')) continue;
-    if (f.isDirectory()) { room.dirs.push(f.name); continue; }
-    const size = statSync(join(dir, f.name)).size;
-    total += size;
-    room.files.push(f.name);
-    if (size > FILE_LIMIT) { problems++; console.warn(`! ${e.name}/${f.name} is ${mb(size)}: GitHub rejects files over 100 MB. Compress it or host it elsewhere.`); }
+  const dir = join(roomsDir, e.name), room = scan(dir, e.name);
+  if (room.dirs.length) {
+    room.children = {};
+    for (const sub of room.dirs) room.children[sub] = scan(join(dir, sub), `${e.name}/${sub}`);
   }
   manifest.rooms[e.name] = room;
-  console.log(`${e.name}/  ${room.files.length} file${room.files.length === 1 ? '' : 's'}`);
+  // A folder with media files of its own is a room; one that only holds folders is a dataset (the page makes the same call).
+  console.log(room.files.length || !room.dirs.length
+    ? `${e.name}/  ${plural(room.files.length, 'file')}`
+    : `${e.name}/  dataset, ${plural(room.dirs.length, 'room')}`);
+  for (const sub of room.dirs) console.log(`  ${sub}/  ${plural(room.children[sub].files.length, 'file')}`);
 }
 
 if (total > SITE_LIMIT) { problems++; console.warn(`! rooms/ is ${mb(total)}: GitHub Pages sites should stay below about 1 GB.`); }
 writeFileSync(join(roomsDir, OUT), JSON.stringify(manifest, null, 2) + '\n');
-console.log(`\nWrote rooms/${OUT}: ${Object.keys(manifest.rooms).length} rooms, ${mb(total)} in total${problems ? `, ${problems} warning${problems === 1 ? '' : 's'}` : ''}.`);
+console.log(`\nWrote rooms/${OUT}: ${Object.keys(manifest.rooms).length} folders, ${mb(total)} in total${problems ? `, ${problems} warning${problems === 1 ? '' : 's'}` : ''}.`);

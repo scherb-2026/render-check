@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="css/sidebar.css">
 </head>
 <body>
+<nav class="dsbar" id="dsTabs" role="tablist" aria-orientation="vertical" aria-label="Datasets" hidden></nav>
 <nav class="sidebar" id="sideTabs" role="tablist" aria-orientation="vertical" aria-label="Media type" hidden>
   <button type="button" role="tab" data-tab="video" aria-selected="false" aria-controls="pane-video"><span class="lbl">Videos</span><span class="n"></span></button>
   <button type="button" role="tab" data-tab="image" aria-selected="false" aria-controls="pane-image"><span class="lbl">Images</span><span class="n"></span></button>
@@ -33,8 +34,15 @@
 
   <main id="rooms" class="rooms"></main>
 
+  <div class="next-ds" id="nextDs" hidden>
+    <button type="button">
+      <span class="txt"><span class="k">Next dataset</span><span class="nm"></span><span class="cnt"></span></span>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+
   <p class="hint">Drag across an image or the slider below it to move the split; <kbd>←</kbd> <kbd>→</kbd> nudge a focused handle (<kbd>Shift</kbd> for bigger steps).
-    Hovering a box: <kbd>Space</kbd> blinks to the render only. <kbd>S</kbd> starts or stops the sweep, <kbd>1</kbd>–<kbd>9</kbd> switch renders. For videos: <kbd>K</kbd> play/pause, <kbd>,</kbd> <kbd>.</kbd> step one frame. Videos play by themselves while they are in the middle of the window; stop one and it stays stopped until you scroll away and back. Switch between Videos and Images with the bar on the left.</p>
+    Hovering a box: <kbd>Space</kbd> blinks to the render only. <kbd>S</kbd> starts or stops the sweep, <kbd>1</kbd>–<kbd>9</kbd> switch renders. For videos: <kbd>K</kbd> play/pause, <kbd>,</kbd> <kbd>.</kbd> step one frame. Videos play by themselves while they are in the middle of the window; stop one and it stays stopped until you scroll away and back. Switch datasets with the bar on the far left, and between Videos and Images with the narrow bar beside it; at the bottom of a dataset a button leads to the next one.</p>
 </div>
 
 <template id="roomTpl">

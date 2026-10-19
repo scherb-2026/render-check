@@ -12,6 +12,10 @@ per folder, with a slider, fade and difference modes, synced video playback and 
 It runs locally; it is not meant to be hosted.
 
 
+## Datasets (added after the Videos / Images tabs)
+
+`rooms/` now holds **datasets**: a dataset is a folder of room folders (`rooms/<dataset>/<room>/files`). Rooms that sit directly in `rooms/` are grouped into a dataset called **Misc**, always last. The page has three levels: a dataset bar (far left, `#dsTabs`, `.dsbar`), the Videos / Images bar inside the dataset (`#sideTabs`, now offset by `--ds-w`), and the boxes. Details are under *Data conventions* below; the reasoning is in `project.md` §1 and §8.
+
 ## Code layout
 
 Run it as described in the README. The page reads the folder listing of `rooms/`; **Open folder…** covers `file://`.
@@ -28,9 +32,10 @@ render-check/
     media/media.js        builds the img / video / canvas for a file; decodes EXR
     room/room.js          one comparison box: modes, slider, gamma, sweep, video, tabs; makeFix
     app/                  render-page · discovery · scroll-assist · shortcuts · main
-  rooms/                  the user's comparisons (small examples included, all safe to delete)
+  rooms/                  the user's comparisons: room folders and dataset folders of rooms (small examples included, all safe to delete)
   tools/extract-frame.bat frame extraction with ffmpeg
   tools/build-manifest.mjs writes rooms/manifest.json (static hosting; Node, no packages)
+  tools/prepare-videos.py  converts videos browsers can't play to H.264 MP4 in rooms/, then runs python -m http.server 8080
   .github/workflows/pages.yml  deploys to GitHub Pages: stages the site, runs build-manifest, publishes
   research/               this handover and project.md
   tests/exr/              decoder tests: `python3 tests/exr/gen.py`, then `node tests/exr/test.js` (needs `pip install OpenEXR numpy`)
@@ -47,9 +52,12 @@ This layout was taken from the sister project *Distortion viewer* (same page, pl
 
 ## Data conventions
 
-One folder per comparison under `rooms/`, holding one original and one or more renders. Files sit directly inside the folder.
+One folder per room under `rooms/` (or under a dataset folder inside `rooms/`), holding one original and one or more renders, or just some files to preview (see *Previews* below). Files sit directly inside the folder.
 
 - **Which file is the original.** A file is a render if its name contains the word `render` or `synthetic`, or ends in a Blender number such as `name.001.png` (`js/core/naming.js`). The original is a file named with `original`, `orig`, `photo`, `ref`, `real` or `footage`, else the first remaining file. If every file looks like a render, or none does, the code picks one and shows a warning.
+- **Datasets.** `collectDatasets({ root, list, urlOf })` in `discovery.js` turns any of the three sources (server listing, manifest, picked folder) into `{ datasets, skipped }`. For each folder `top` in `rooms/` it lists the folder and decides: media files directly inside (`toEntries`, which now returns an entry for any folder with at least one media file) → a room, added to the `misc` dataset, unless the folder also has subfolders and its own files are only a preview (then it is a dataset and the stray files are ignored); no media files and no subfolders → skipped with `skipReason` ("no images or videos found"); otherwise → a dataset, and each of its subfolders is listed and built as a room (skips are named `dataset/room`). So a folder with media files of its own is a room, and one that only holds folders (or has subfolders and only a preview's worth of files) is a dataset. Datasets are keyed by lower-cased folder name; a real folder called `misc` merges with the loose rooms. Order: natural folder-name order, `misc` last; the label is `prettify(folder)` (`Misc` for misc). Datasets cannot nest: a room folder inside a room folder is reported as skipped ("no deeper"). Sources share one shape, `{ root: {dirs, files, others}, list(dir), urlOf(file) }`; a `dir` is `{ name, url? , node? }`, where `url` is used by the server listing and `node` by the manifest and the picked folder (a tree built from `webkitRelativePath`). `renderAll(sets, sourceLabel, skipped, info)` in `render-page.js` gets the list: each dataset becomes `{ name, folder, entries: {video:[], image:[]}, panes: {}, kind, total }`.
+- **Showing a dataset.** `showDataset(index, kind)` builds the `.pane` for that dataset and kind the first time (`id="pane-<index>-<kind>"`), hides every other pane of every dataset, fills the Videos / Images counts for this dataset, remembers the kind in `ds.kind` (a dataset opens on its last kind, else Videos, else Images), fills the next-dataset button, clears `hovered`, and scrolls to the top. `showTab(kind)` is the old name, now a thin wrapper for the current dataset. Panes of datasets already visited stay in the DOM (hidden), so box state survives switching.
+- **Next-dataset button.** `#nextDs` (below `#rooms`, outside the panes) shows `Next dataset / <name> / <n comparisons>` and is hidden on the last dataset. It is also a **snap point** of `scroll-assist.js` (`snapPoints` selects `.room, .next-ds`). Without that, the gravity zone below the last room reached to the bottom of the page and pulled the scroll back, holding the button out of reach.
 - **Videos and Images tabs.** Every comparison entry has `kind`: `video` if its original or any render is a video, else `image` (`buildEntry` in `discovery.js`). One folder is one entry, so the user keeps video rooms and image rooms in separate folders under `rooms/` and each lands in its tab. (`toEntries` returns a list only so callers can `flat()` it.) `renderAll` (`render-page.js`) sorts entries into `tabEntries.video` and `tabEntries.image`, fills the counts in the `#sideTabs` bar, and calls `showTab`. `showTab(kind)` builds that tab's `.pane` the first time (so the other tab's media is not fetched or decoded up front), hides the other pane (`hidden`), clears `hovered`, and scrolls to the top. The page opens on `video`, or `image` when there are no videos. A pane is a `display:grid` container, so the layout inside is the same as before the tabs existed. Code that walks `.room` elements must skip hidden ones (`snapPoints` checks `offsetParent`).
 - **Autoplay** (`room.js`, next to the video sync). Two IntersectionObservers watch the `.stage`: the old one pauses and stops the sweep when the picture is completely out of view; the new one uses `rootMargin: '-49% 0px -49% 0px'`, a 2 % band across the middle of the window, and sets `inBand`. Entering the band calls `maybeAutoplay()`: it plays if `inBand`, not `manualStop`, not already playing and every video has metadata (`readyState >= 1`); it is also called when the media finish loading and after a render switch. `autoStarted` marks a play that autoplay began. Leaving the band clears `manualStop` and pauses only if `autoStarted`. `manualStop` is set by the play/pause button and **K** (when pausing), frame stepping and scrubbing; starting by hand clears it. Hidden tabs (`display:none`) report "not intersecting", so their videos pause and re-arm by themselves.
 - **Several renders.** They become numbered tabs in file-name order; keys 1-9 switch them while hovering. Videos stay in sync and keep the current time on a switch.
@@ -66,6 +74,17 @@ and writes `rooms/manifest.json`:
 { "version": 1, "generated": "…", "loose": [],
   "rooms": { "02_kitchen": { "files": ["kitchen.jpg", "kitchen.001.exr"], "dirs": [] } } }
 ```
+
+Version 2 (with datasets) adds `children` to any folder that has subfolders, so a dataset folder can be read without listing it:
+
+```json
+{ "version": 2, "generated": "…", "loose": [],
+  "rooms": { "01_apartment_a": { "files": [], "dirs": ["living-room"],
+               "children": { "living-room": { "files": ["original.jpg", "render.png"], "dirs": [] } } },
+             "old-test": { "files": ["original.jpg", "render.png"], "dirs": [] } } }
+```
+
+`listManifest()` accepts both versions (a missing `children` just means no subfolders are known).
 
 It lists every non-hidden file; the page decides what is media with `MEDIA_RE`, so the script holds no copy of the file-type rules. In `discovery.js`,
 `loadFromServer` tries the server listing first (always current while editing locally) and uses `listManifest()` when the listing fails or has no
@@ -124,10 +143,18 @@ then goes through the same `toEntry`/`skipReason` path with object URLs.
 - Among the remaining files, one whose name contains `original`, `orig`, `photo`, `ref`, `real` or `footage`
   (`ORIGINAL_WORDS`) is preferred as the original; otherwise the first remaining file (natural sort) is used.
 - Fallbacks, each with a visible warning on the box: no file marked as a render (first file is the original,
-  the rest are renders); every file looks like a render (one without a `.001` number becomes the original);
-  more than one non-render file (extras are ignored and named).
+  the rest are renders); more than one non-render file (extras are ignored and named).
+- **Previews (nothing to compare).** `classify` first checks for rooms that cannot be a comparison and returns `{ preview, files }` instead:
+  every file looks like a render → `'render'`; every file is named like an original → `'original'`; a single file → its own kind, or `'file'`
+  when its name says neither. (Before previews, a single file made the folder skip, and "every file looks like a render" made one of them
+  the original with a warning. See `project.md` §1.)
 
-Entries look like `{ name, warning, original: {url, isVideo, name}, renders: [{url, isVideo, name}, …] }`.
+Entries look like `{ name, warning, kind, original: {url, isVideo, isExr, name}, renders: [{url, isVideo, isExr, name}, …], preview: null }`.
+A **preview entry** has `original: null`, `renders` = the files that exist (named for historical reasons) and `preview: 'render' | 'original' | 'file'`.
+In `createRoom` (`room.js`) `preview = !!entry.preview` makes `photo` null and `mode` `'view'`, adds class `preview` to the box (CSS hides `.seg`,
+`.slider-row` and the tags and restores the bottom padding), blocks the sweep, labels the tabs "File", follows the aspect ratio of the selected
+file (`select` and the load listener call `setAspect`), and writes `updateLabels` meta such as `render only, nothing to compare yet`.
+Gamma, grid, EXR, tabs, the video transport and autoplay are the normal code paths, with `photo` filtered out of the video list.
 
 ### Layering inside a box
 
@@ -197,6 +224,51 @@ gravity 120 ms after the last external scroll event or once the pointer is relea
 page is settled or when the pull has faded below 10 px/s² near a zone edge (otherwise it crept for seconds).
 It is disabled when the toggle is off (`localStorage` key `rc-snap`) or the user prefers reduced motion.
 
+
+## Datasets: what was verified
+
+| Area | What was checked | Result |
+| --- | --- | --- |
+| Grouping | `rooms/` with three dataset folders (image-only, video-only, mixed incl. an EXR room), the three loose example rooms, a dataset with one single-file room and an empty folder; python's server, 1400 × 900 | tabs `Apartment a 3, House b 2, Villa Tall 5, Misc 3` in that order; 13 comparisons; two folders skipped with reasons `04_broken/one-file/` and `05_nothing/`; no script errors |
+| Inside a dataset | Videos / Images bar per dataset | counts and disabled state follow the dataset (an image-only dataset opens on Images with Videos disabled); a dataset remembers its tab; arrow keys, Home and End move through the dataset bar |
+| Next button | Villa Tall (five tall video rooms), real mouse wheel with Snap scroll on, 60 notches | scroll reached the bottom with the button fully in view; click opened Misc at the top; button hidden on Misc |
+| Static host | `node tools/build-manifest.mjs` on a copy, served by a server that returns 404 for folders | identical tabs, counts, skips and next button as with the listing |
+| Open folder… | `setInputFiles` with the `rooms` folder on the same data | same four datasets and the same skip list |
+| Edge cases | a real `Misc` folder next to loose rooms; a room nested two levels below a dataset; no usable rooms at all | merged into Misc (4); reported as skipped with the "no deeper" hint; notice with the new expected layout, bars hidden |
+| Video | videos of a dataset after switching | the left dataset's videos pause; only the visible room's play |
+| Unchanged projects | the original zip's `rooms/` (three loose rooms) | one `Misc` tab with 3, no next button |
+
+**Not tested:** real Windows browsers, Firefox and Safari, dozens of datasets with many large videos (memory), a phone with the 92 px dataset bar beyond a screenshot at 420 px.
+
+## Previews: what was verified
+
+| Area | What was checked | Result |
+| --- | --- | --- |
+| Cases | one dataset with: only a render, only an original, a single unmarked file, two renders (`render.001/.002`), two `original_*` files, a lone video, a lone EXR, two renders with different aspect ratios; plus a full comparison and an EXR comparison for contrast; python's server, 1400 × 900 | all shown, none skipped; preview boxes have no slider, mode buttons or tags, normal boxes unchanged; meta lines read `render only, nothing to compare yet · render.png` etc., the EXR one adds `render EXR ZIP, half`; multi-file previews get tabs labelled File |
+| Aspect | two files, 400 × 600 and 1200 × 800 | stage aspect follows the selected tab (`400 / 600`, then `1200 / 800`) |
+| Keys | S, Space and 1 on a preview box | no errors, no sweep, tab 1 selected |
+| Video | a lone video | plays by itself in the middle of the window, transport visible |
+| Folder rules | a dataset with a stray `thumbnail.png` next to its rooms; a full comparison folder that also has an empty subfolder | dataset keeps its room and ignores the file; the other is a room under Misc |
+| Sources | static server with manifest (version 2), and Open folder… | same 16 rooms, same three datasets |
+| Regression | the earlier dataset test data | the one-file room is now a dataset with one preview; next-dataset button still reachable by wheel; no script errors |
+
+**Not tested:** audio-less or very long lone videos beyond the example, many lone files at once (every preview loads its file when its dataset tab is built).
+
+## prepare-videos.py: what it does and what was verified
+
+`tools/prepare-videos.py` is a **local pre-test / pre-push step** (not part of the page, not run by the Pages workflow). It walks `rooms/`, probes each video with ffprobe and leaves it alone when a browser plays it (`PLAYABLE_CODECS` per container, `PLAYABLE_PIX`: H.264 in MP4/M4V/MOV, VP8/VP9/AV1 in WebM, Theora/VP8 in OGV, all 8-bit 4:2:0). Otherwise it runs ffmpeg (`-map 0:v:0 -an`, even-size scale, libx264 yuv420p, CRF 16, preset slow, faststart), writes a hidden temp file `.<name>.converting.mp4` beside the source, verifies it (ffprobe says h264 + yuv420p, length within max 0.5 s or 2 %), then moves the original to `video-originals/<path relative to the project>` and renames the temp file to `<name>.mp4`. Anything that fails verification leaves the original untouched. Leftover temp files from an interrupted run are deleted at the start of a real run (not a dry run). The last step is `python -m http.server <port> --bind 127.0.0.1` from the project root (`--no-serve` skips it, `--dry-run` changes nothing).
+
+| Area | What was checked | Result |
+| --- | --- | --- |
+| Detection | 14 videos: HEVC 10-bit, H.264 4:4:4 (two), ProRes 4:2:2 10-bit, PNG-in-MOV, plain H.264 MP4, VP9 WebM, two undecodable files | dry run listed exactly the 7 convertible ones with codec and size, 2 as unreadable; playable files not listed |
+| Conversion | real run | all outputs h264 yuv420p, zero decode errors over a full ffmpeg decode, `moov` before `mdat` (faststart); a 641 × 361 RGB source came out 640 × 360 |
+| Safety | originals, playable files, undecodable files | backups byte-identical to the originals in the same layout under `video-originals/`; playable and undecodable files untouched (checksums); a `.mov` whose `.mp4` name was taken was skipped with a message and left alone |
+| Idempotence | second run | nothing to convert except the skipped clash |
+| Dry run | leftover temp file present | survives (a bug where it was deleted was found and fixed) |
+| Serving | script left running | `python -m http.server` on 127.0.0.1:8090, the page and `rooms/` listing served, the page found the converted rooms, Ctrl+C stops it cleanly |
+| No ffmpeg | PATH without ffmpeg | clear message, still starts the page |
+
+**Not verified:** playback of the converted files in a real browser (headless Chromium here has no H.264 decoder; correctness was checked with ffprobe and a full ffmpeg decode), Windows (the `.bat` wrapper and `winget` hint), videos in the tens of gigabytes, 10-bit HDR sources (converted to 8-bit without tone mapping, so HLG/PQ footage will look flat).
 
 ## Current state
 
