@@ -4,8 +4,8 @@ This gets the page online at `https://<your-name>.github.io/<repository>/`. It t
 
 ## Before you start
 
-- **A free GitHub Pages site is public.** Anyone with the link can see every photo, video and render in `rooms/`. Private sites need a paid GitHub plan. If the footage is sensitive, do not publish it this way.
-- **Size limits.** GitHub refuses single files over 100 MB, and a Pages site should stay under about 1 GB. Compress large videos and 4K EXRs first (the README shows the ffmpeg command for videos). Git LFS files are not served by Pages.
+- **A free GitHub Pages site is public.** Anyone with the link can see every image, video and render in `data/`. Private sites need a paid GitHub plan. If the footage is sensitive, do not publish it this way.
+- **Size limits.** GitHub refuses single files over 100 MB, and a Pages site should stay under about 1 GB. `tools/get_videos.py` converts videos to compact H.264; compress 4K EXRs yourself. Git LFS files are not served by Pages.
 - **You need** a GitHub account and either [Git](https://git-scm.com/downloads) or [GitHub Desktop](https://desktop.github.com/).
 
 ## 1. Create the repository
@@ -16,7 +16,7 @@ This gets the page online at `https://<your-name>.github.io/<repository>/`. It t
 
 ## 2. Put the project in it
 
-Unzip `render-check.zip`. The folder must contain `index.html`, `css`, `js`, `rooms` and the hidden `.github` folder. The workflow lives in `.github`, so make sure it came along.
+Unzip `render-check.zip`, then fill `data/` from the pipeline output: `python tools/get_images.py <root>` and `python tools/get_videos.py <root>` (see the README), and look at the result with `python -m http.server`. The folder must contain `index.html`, `css`, `js`, `data` (with `manifest.json`) and the hidden `.github` folder. The workflow lives in `.github`, so make sure it came along.
 
 **With Git** (open a terminal in the unzipped `render-check` folder; replace the address with the one GitHub shows you):
 
@@ -40,17 +40,17 @@ That is all. There is nothing to pick for the branch or folder.
 ## 4. Watch the first deploy
 
 1. Open the **Actions** tab. The run "Deploy to GitHub Pages" starts by itself after the push. If it doesn't, open it and press **Run workflow**.
-2. Wait for the green tick (about a minute). The step "Write the room manifest" lists every room it found.
+2. Wait for the green tick (about a minute). The step "Stage the site" stops with a message when `data/manifest.json` is missing.
 3. Open `https://<your-name>.github.io/<repository>/`. The link is also shown at the end of the run and under Settings → Pages.
 
-## Adding or changing rooms later
+## Importing new pipeline output later
 
-Put the new folder in `rooms/` (a room, or a dataset folder holding rooms; see the README for the layout and naming). If it has videos, first run `python tools/prepare-videos.py` on your computer and look at the result in the page it starts (this converts what browsers can't play and keeps your originals in `video-originals/`, which is never pushed). Then commit and push. The workflow rebuilds the room list by itself, so you never edit or commit `manifest.json`. A room can take a minute to appear, and you may need a hard refresh (Ctrl+F5) because browsers keep old files.
+Run `python tools/get_images.py <root>` and, for videos, `python tools/get_videos.py <root>` again (they copy only what changed, remove what is gone, and convert videos browsers can't play), look at the result locally, then commit `data/` (it includes `manifest.json`) and push. The workflow publishes `data/` as it is; it does not build the manifest. New boxes can take a minute to appear, and you may need a hard refresh (Ctrl+F5) because browsers keep old files.
 
 With GitHub Desktop: commit, then **Push origin**. With Git:
 
     git add .
-    git commit -m "Add kitchen"
+    git commit -m "Import new renders"
     git push
 
 ## If something goes wrong
@@ -60,11 +60,11 @@ With GitHub Desktop: commit, then **Push origin**. With Git:
 | The Actions tab is empty, or no run starts | The `.github` folder wasn't pushed (hidden folders are easy to lose when zipping or uploading). Check that `.github/workflows/pages.yml` is in the repository on github.com. |
 | The run fails at "Configure Pages" or "Deploy" | Settings → Pages → Source is not set to **GitHub Actions** (step 3). Set it and re-run the workflow. |
 | The push is rejected for a large file | A file is over 100 MB. Compress it, remove it from the commit (`git rm --cached <file>`, then commit again) and push. |
-| Page says "Couldn’t read the rooms folder" | The deploy didn't finish, or you opened the repository page instead of the Pages address. Check the Actions run, and open the `github.io` link. |
-| "No comparisons found" or "folders were skipped" | The page lists each skipped folder with the reason: usually a folder with no image or video that the page can show (for example only TIFF files), or files nested one folder too deep. |
-| A new room doesn't show up | Wait for the run to finish, then hard refresh. |
+| The run stops with "data/manifest.json is missing" | The import scripts were not run, or `data/` was not committed. Run them and commit `data/`. |
+| Page says "Couldn’t read data/manifest.json" | The deploy didn't finish, or you opened the repository page instead of the Pages address. Check the Actions run, and open the `github.io` link. |
+| New boxes don't show up | Check they are in the committed `data/manifest.json`, wait for the run to finish, then hard refresh. |
 | An EXR says it can't be read | It uses B44 or DWAA compression or is tiled. Save it from Blender with Codec → ZIP. |
-| A video won't play | It is probably H.265 or 10-bit. The box shows the ffmpeg command that fixes it. |
+| A video won't play | It was not converted. Run `tools/get_videos.py` (it needs ffmpeg), then commit `data/` again. |
 | Files work locally but not online | Pages treats `Render.PNG` and `render.png` as different files. Keep the capitalisation the same everywhere. |
 
 ## Taking it down

@@ -1,5 +1,5 @@
 # Publishes the page on GitHub Pages. In the repository: Settings → Pages → Source: "GitHub Actions".
-# The folder listing that the page reads locally doesn't exist on Pages, so the build writes rooms/manifest.json.
+# data/ (images, videos and manifest.json) is filled on your computer by tools/get_images.py and tools/get_videos.py, then committed.
 name: Deploy to GitHub Pages
 
 on:
@@ -24,16 +24,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Stage the site (only what the page needs)
         run: |
           mkdir _site
-          cp -r index.html css js rooms _site/
+          cp -r index.html css js data _site/
           touch _site/.nojekyll
-      - name: Write the room manifest
-        run: node tools/build-manifest.mjs _site
+          test -f _site/data/manifest.json || { echo "data/manifest.json is missing: run tools/get_images.py (and get_videos.py) and commit data/"; exit 1; }
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

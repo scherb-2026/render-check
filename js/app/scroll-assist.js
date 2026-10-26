@@ -26,13 +26,16 @@ snapBtn.addEventListener('click', () => {
   if (!snapOn) stopPhysics();
 });
 
+// Height of the tab rows while they stick to the top of the window (0 when they scroll away with the page).
+const stuckHeight = () => { const t = document.getElementById('topbars'); return t && !t.hidden && getComputedStyle(t).position === 'sticky' ? t.offsetHeight : 0; };
+
 function snapPoints() {
-  const vh = window.innerHeight, max = document.documentElement.scrollHeight - vh;
+  const bar = stuckHeight(), vh = window.innerHeight - bar, max = document.documentElement.scrollHeight - window.innerHeight;
   const pts = [];
-  document.querySelectorAll('.room, .next-ds').forEach((el) => {      // the next-dataset button counts as a box, or the pull toward the last room would hold it out of reach
+  document.querySelectorAll('.room, .next-ds').forEach((el) => {      // the next-tool button counts as a box, or the pull toward the last room would hold it out of reach
     if (!el.offsetParent) return;      // in the hidden tab or hidden pane
     const r = el.getBoundingClientRect(), top = r.top + window.scrollY;
-    const y = r.height <= vh - 2 * SNAP_MARGIN ? top - (vh - r.height) / 2 : top - SNAP_MARGIN;
+    const y = (r.height <= vh - 2 * SNAP_MARGIN ? top - (vh - r.height) / 2 : top - SNAP_MARGIN) - bar;
     pts.push(Math.max(0, Math.min(max, y)));
   });
   return [...new Set(pts)].sort((a, b) => a - b).filter((p, i, a) => i === 0 || p - a[i - 1] > 4);

@@ -1,0 +1,61 @@
+/* css/topbar.css — the bar at the top (dataset, colour, tool rows, the view row with Images / Videos and the mode), the gallery grid */
+
+/* ---- the bar: full window width, rows separated by a line, stays at the top while the gallery scrolls under it ---- */
+.topbars {
+  position: sticky; top: 0; z-index: 20; margin: 0;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+@media (max-height: 640px), (max-width: 640px) { .topbars { position: static; } }
+.topbars .row { display: flex; align-items: stretch; min-height: 40px; }
+.topbars .row + .row { border-top: 1px solid var(--line); }
+/* the left end of each row: its name and a statistic (a number), one column, left aligned, the same width in every row */
+.rowlbl {
+  flex: none; width: calc(var(--gut) + 118px); padding-left: var(--gut); display: grid; grid-template-columns: 70px 1fr; align-items: center; column-gap: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.rowlbl .num { font-size: 15px; letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; padding-right: 12px; }   /* the numbers have a column of their own: their last digits line up */
+
+/* ---- tabs: no borders of their own; the buttons fill the row, their text is centred, a short line sits between neighbours ---- */
+.tabrow, .extras { display: flex; align-items: stretch; min-width: 0; }
+.tabrow { flex: 1 1 0; }
+.extras { flex: none; position: relative; }
+.row.view .extras { flex: 1 1 0; }                      /* the two groups share the row and their buttons fill them */
+.row.view .extras button { flex: 1 1 0; }
+.row.view .extras + .extras { margin-left: 40px; }      /* clear gap between Images / Videos and Slider / Fade / Difference ... */
+.row.view .extras + .extras::before { content: ""; position: absolute; left: -20px; top: 0; bottom: 0; width: 1px; background: var(--line); }   /* ... with a full-height line in the middle of it */
+.tabrow button, .extras button {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0;
+  padding: 0 14px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-weight: 500; cursor: pointer;
+}
+.tabrow button { flex: 1 1 0; }
+.extras button { flex: none; padding: 0 18px; }
+.tabrow button + button::before, .extras button + button::before {
+  content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 1px; background: var(--line);
+}
+.tabrow.lines { flex-direction: column; }            /* the tool row: one or more lines (render-page.js layoutRow), each a .tl holding its buttons */
+.tabrow .tl { flex: 1 1 auto; display: flex; align-items: stretch; min-height: 40px; min-width: 0; }
+.tabrow .tl + .tl { border-top: 1px solid var(--line); }
+.tabrow .lbl, .extras .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabrow button:hover, .extras button:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, #fff); }
+.tabrow button[aria-selected="true"], .extras button[aria-selected="true"], .extras button[aria-pressed="true"] {
+  color: var(--ink); font-weight: 600; background: color-mix(in srgb, var(--accent) 12%, #fff); box-shadow: inset 0 -2px 0 var(--accent);
+}
+.tabrow button:focus-visible, .extras button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.extras button:disabled { opacity: .4; cursor: default; }
+.n { flex: none; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 500; min-width: 1.6em; padding: 1px 4px; text-align: center; border-radius: 9px; background: #ececea; color: var(--muted); }
+/* the tool buttons: name, then the number of cameras with an image and with a video, each behind its icon */
+.cnt { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--muted); }
+.cnt .ico { flex: none; opacity: .85; }
+.cnt.zero { opacity: .4; }
+[aria-selected="true"] > .cnt { color: var(--accent); }
+[aria-selected="true"] > .n { background: var(--accent); color: var(--accent-ink); }
+
+@media (max-width: 640px) {
+  .rowlbl { width: calc(var(--gut) + 96px); grid-template-columns: 62px 1fr; column-gap: 4px; }
+  .rowlbl .num { padding-right: 8px; }
+  .topbars .row.view { flex-wrap: wrap; }
+  .row.view .extras { flex: 1 1 calc(100% - var(--gut) - 96px); min-height: 38px; }
+  .row.view .extras + .extras { margin-left: calc(var(--gut) + 96px); border-top: 1px solid var(--line); }
+  .row.view .extras + .extras::before { display: none; }
+  .row.view .extras button { flex: 1; }
+}

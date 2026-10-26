@@ -2,9 +2,5 @@
 tests/exr/cases/
 __pycache__/
 
-# Written by tools/build-manifest.mjs (the Pages workflow makes its own)
-rooms/manifest.json
+# Local copy of the Pages staging folder
 _site/
-
-# Originals moved aside by tools/prepare-videos.py: large, and never meant to be pushed
-video-originals/
